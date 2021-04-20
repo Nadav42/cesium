@@ -359,16 +359,7 @@ gulp.task("generateDocumentation-watch", function () {
   });
 });
 
-gulp.task(
-  "release",
-  gulp.series(
-    "build",
-    "build-ts",
-    combine,
-    minifyRelease,
-    generateDocumentation
-  )
-);
+gulp.task("release", gulp.series("build", "build-ts", combine, minifyRelease));
 
 gulp.task(
   "makeZipFile",

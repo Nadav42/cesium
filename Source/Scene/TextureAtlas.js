@@ -272,16 +272,10 @@ function destroyNode(node) {
 function shouldRemoveChild(node) {
   if (!defined(node)) {
     return true;
-  }
-
-  if (
-    !defined(node.childNode1) &&
-    !defined(node.childNode2) &&
-    !defined(node.imageIndex)
-  ) {
-    return true;
   } else if (defined(node.imageIndex)) {
     return false;
+  } else if (!defined(node.childNode1) && !defined(node.childNode2)) {
+    return true;
   }
 
   return (
@@ -545,6 +539,7 @@ TextureAtlas.prototype.freeImageNode = function (id) {
     if (defined(node)) {
       node.imageIndex = undefined; //console.log("found node to free:", node);
       cleanLeafNode(node);
+      that._textureCoordinates[index] = undefined;
     }
   });
 };

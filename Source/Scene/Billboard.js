@@ -1515,7 +1515,7 @@ Billboard.prototype.equals = function (other) {
 Billboard.prototype._freeFromTextureAtlas = function () {
   if (defined(this._imageId)) {
     var atlas = this._billboardCollection._textureAtlas;
-    atlas.freeImageNode(this._imageId);
+    atlas.freeImageNode(this._imageId, this._imageIndex);
   }
 };
 

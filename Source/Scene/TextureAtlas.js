@@ -558,18 +558,32 @@ TextureAtlas.prototype.addImage = function (id, image) {
   return indexPromise;
 };
 
+TextureAtlas.prototype.clearNode = function (node, imageIndex) {
+  if (defined(node)) {
+    node.imageIndex = undefined; //console.log("found node to free:", node);
+    cleanLeafNode(node);
+    this._textureCoordinates[imageIndex] = undefined;
+  }
+};
+
 /**
  * free occupied TextureAtlasNode
  *
  * @param {String} id An identifier to detect whether the image already exists in the atlas.
  * @returns {void}
  */
-TextureAtlas.prototype.freeImageNode = function (id) {
+TextureAtlas.prototype.freeImageNode = function (id, imageIndexArg) {
   //>>includeStart('debug', pragmas.debug);
   if (!defined(id)) {
     throw new DeveloperError("id is required.");
   }
   //>>includeEnd('debug');
+
+  if (defined(imageIndexArg)) {
+    var node = findNodeByImageIndex(this, this._root, imageIndexArg);
+    this.clearNode(node, imageIndexArg);
+    return;
+  }
 
   var indexPromise = this._idHash[id];
 
@@ -583,11 +597,7 @@ TextureAtlas.prototype.freeImageNode = function (id) {
 
   indexPromise.then(function (imageIndex) {
     var node = findNodeByImageIndex(that, that._root, imageIndex);
-    if (defined(node)) {
-      node.imageIndex = undefined; //console.log("found node to free:", node);
-      cleanLeafNode(node);
-      that._textureCoordinates[index] = undefined;
-    }
+    that.clearNode(node, imageIndex);
   });
 };
 

@@ -558,11 +558,16 @@ TextureAtlas.prototype.addImage = function (id, image) {
   return indexPromise;
 };
 
-TextureAtlas.prototype.clearNode = function (node, imageIndex) {
+TextureAtlas.prototype.freeNodeResources = function (
+  node,
+  imageId,
+  imageIndex
+) {
   if (defined(node)) {
     node.imageIndex = undefined; //console.log("found node to free:", node);
     cleanLeafNode(node);
-    this._textureCoordinates[imageIndex] = undefined;
+    delete this._textureCoordinates[imageIndex];
+    delete this._idHash[imageId];
   }
 };
 
@@ -581,7 +586,7 @@ TextureAtlas.prototype.freeImageNode = function (id, imageIndexArg) {
 
   if (defined(imageIndexArg)) {
     var node = findNodeByImageIndex(this, this._root, imageIndexArg);
-    this.clearNode(node, imageIndexArg);
+    this.freeNodeResources(node, id, imageIndexArg);
     return;
   }
 
@@ -597,7 +602,7 @@ TextureAtlas.prototype.freeImageNode = function (id, imageIndexArg) {
 
   indexPromise.then(function (imageIndex) {
     var node = findNodeByImageIndex(that, that._root, imageIndex);
-    that.clearNode(node, imageIndex);
+    that.freeNodeResources(node, id, imageIndex);
   });
 };
 

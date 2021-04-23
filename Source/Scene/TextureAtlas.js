@@ -268,54 +268,60 @@ function destroyNode(node) {
   }
 }
 
+// return true if all childs and subchilds are leafs with no image
 function shouldRemoveChild(node) {
   if (!defined(node)) {
     return true;
   }
 
-  return (
+  if (
     !defined(node.childNode1) &&
     !defined(node.childNode2) &&
     !defined(node.imageIndex)
+  ) {
+    return true;
+  } else if (defined(node.imageIndex)) {
+    return false;
+  }
+
+  return (
+    shouldRemoveChild(node.childNode1) && shouldRemoveChild(node.childNode2)
   );
 }
 
-// // clean unused leaf nodes with no images
-// function cleanLeafNode(node) {
-//   if (!defined(node)) {
-//     return;
-//   }
+// remove all dead childs of a node recursively
+function removeDeadNodes(node) {
+  if (!defined(node)) {
+    return true;
+  }
 
-//   console.log("cleanLeafNode", node, shouldRemoveChild(node.childNode1), shouldRemoveChild(node.childNode2));
+  if (
+    !shouldRemoveChild(node.childNode1) ||
+    !shouldRemoveChild(node.childNode2)
+  ) {
+    return false;
+  }
 
-//   // If a leaf node with no image
-//   if (shouldRemoveChild(node.childNode1) && shouldRemoveChild(node.childNode2)) {
-//     destroyNode(node.childNode1);
-//     destroyNode(node.childNode2);
-//     node.childNode1 = undefined;
-//     node.childNode2 = undefined;
-//   }
+  var removedNode1 = removeDeadNodes(node.childNode1);
+  var removedNode2 = removeDeadNodes(node.childNode2);
+  destroyNode(node.childNode1);
+  destroyNode(node.childNode2);
+  node.childNode1 = undefined;
+  node.childNode2 = undefined;
 
-//   cleanLeafNode(node.parent);
-// }
+  return removedNode1 && removedNode2;
+}
 
-// find Node by image index
-function removeDeadLeafNodes(node) {
+// clean unused leaf nodes with no images
+function cleanLeafNode(node) {
   if (!defined(node)) {
     return;
   }
 
-  removeDeadLeafNodes(node.childNode1);
-  removeDeadLeafNodes(node.childNode2);
-
-  if (
-    shouldRemoveChild(node.childNode1) &&
-    shouldRemoveChild(node.childNode2)
-  ) {
-    destroyNode(node.childNode1);
-    destroyNode(node.childNode2);
+  if (removeDeadNodes(node.childNode1) && removeDeadNodes(node.childNode2)) {
     node.childNode1 = undefined;
     node.childNode2 = undefined;
+    cleanLeafNode(node.parent);
   }
 }
 
@@ -538,8 +544,7 @@ TextureAtlas.prototype.freeImageNode = function (id) {
     var node = findNodeByImageIndex(that, that._root, imageIndex);
     if (defined(node)) {
       node.imageIndex = undefined; //console.log("found node to free:", node);
-      //cleanLeafNode(node);
-      removeDeadLeafNodes(that._root);
+      cleanLeafNode(node);
     }
   });
 };

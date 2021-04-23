@@ -483,8 +483,6 @@ function addImage(textureAtlas, image, index) {
     textureAtlas._texture.copyFrom(image, node.bottomLeft.x, node.bottomLeft.y);
   } else {
     // No node found, must resize the texture atlas.
-    console.log("root:", textureAtlas._root);
-
     if (canResizeTextureAtlas(textureAtlas, image)) {
       resizeAtlas(textureAtlas, image);
     } else {

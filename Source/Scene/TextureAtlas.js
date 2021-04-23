@@ -18,13 +18,23 @@ function TextureAtlasNode(
   topRight,
   childNode1,
   childNode2,
-  imageIndex
+  imageIndex,
+  parent
 ) {
   this.bottomLeft = defaultValue(bottomLeft, Cartesian2.ZERO);
   this.topRight = defaultValue(topRight, Cartesian2.ZERO);
   this.childNode1 = childNode1;
   this.childNode2 = childNode2;
   this.imageIndex = imageIndex;
+  this.parent = parent;
+
+  if (childNode1) {
+    childNode1.parent = this;
+  }
+
+  if (childNode2) {
+    childNode2.parent = this;
+  }
 }
 
 var defaultInitialSize = new Cartesian2(16.0, 16.0);
@@ -250,6 +260,65 @@ function resizeAtlas(textureAtlas, image) {
   }
 }
 
+function destroyNode(node) {
+  if (defined(node)) {
+    node.bottomLeft = undefined;
+    node.topRight = undefined;
+    node.parent = undefined;
+  }
+}
+
+function shouldRemoveChild(node) {
+  if (!defined(node)) {
+    return true;
+  }
+
+  return (
+    !defined(node.childNode1) &&
+    !defined(node.childNode2) &&
+    !defined(node.imageIndex)
+  );
+}
+
+// // clean unused leaf nodes with no images
+// function cleanLeafNode(node) {
+//   if (!defined(node)) {
+//     return;
+//   }
+
+//   console.log("cleanLeafNode", node, shouldRemoveChild(node.childNode1), shouldRemoveChild(node.childNode2));
+
+//   // If a leaf node with no image
+//   if (shouldRemoveChild(node.childNode1) && shouldRemoveChild(node.childNode2)) {
+//     destroyNode(node.childNode1);
+//     destroyNode(node.childNode2);
+//     node.childNode1 = undefined;
+//     node.childNode2 = undefined;
+//   }
+
+//   cleanLeafNode(node.parent);
+// }
+
+// find Node by image index
+function removeDeadLeafNodes(node) {
+  if (!defined(node)) {
+    return;
+  }
+
+  removeDeadLeafNodes(node.childNode1);
+  removeDeadLeafNodes(node.childNode2);
+
+  if (
+    shouldRemoveChild(node.childNode1) &&
+    shouldRemoveChild(node.childNode2)
+  ) {
+    destroyNode(node.childNode1);
+    destroyNode(node.childNode2);
+    node.childNode1 = undefined;
+    node.childNode2 = undefined;
+  }
+}
+
 // find Node by image index
 function findNodeByImageIndex(textureAtlas, node, imageIndex) {
   if (!defined(node)) {
@@ -257,7 +326,11 @@ function findNodeByImageIndex(textureAtlas, node, imageIndex) {
   }
 
   // If a leaf node
-  if (!defined(node.childNode1) && !defined(node.childNode2) && node.imageIndex === imageIndex) {
+  if (
+    !defined(node.childNode1) &&
+    !defined(node.childNode2) &&
+    node.imageIndex === imageIndex
+  ) {
     return node;
   }
 
@@ -304,6 +377,7 @@ function findNode(textureAtlas, node, image) {
         new Cartesian2(node.bottomLeft.x, node.bottomLeft.y),
         new Cartesian2(node.bottomLeft.x + image.width, node.topRight.y)
       );
+      node.childNode1.parent = node;
       // Only make a second child if the border gives enough space.
       var childNode2BottomLeftX =
         node.bottomLeft.x + image.width + textureAtlas._borderWidthInPixels;
@@ -312,6 +386,7 @@ function findNode(textureAtlas, node, image) {
           new Cartesian2(childNode2BottomLeftX, node.bottomLeft.y),
           new Cartesian2(node.topRight.x, node.topRight.y)
         );
+        node.childNode2.parent = node;
       }
     }
     // Horizontal split (childNode1 = bottom half, childNode2 = top half).
@@ -320,6 +395,7 @@ function findNode(textureAtlas, node, image) {
         new Cartesian2(node.bottomLeft.x, node.bottomLeft.y),
         new Cartesian2(node.topRight.x, node.bottomLeft.y + image.height)
       );
+      node.childNode1.parent = node;
       // Only make a second child if the border gives enough space.
       var childNode2BottomLeftY =
         node.bottomLeft.y + image.height + textureAtlas._borderWidthInPixels;
@@ -328,6 +404,7 @@ function findNode(textureAtlas, node, image) {
           new Cartesian2(node.bottomLeft.x, childNode2BottomLeftY),
           new Cartesian2(node.topRight.x, node.topRight.y)
         );
+        node.childNode2.parent = node;
       }
     }
     return findNode(textureAtlas, node.childNode1, image);
@@ -360,6 +437,8 @@ function addImage(textureAtlas, image, index) {
     textureAtlas._texture.copyFrom(image, node.bottomLeft.x, node.bottomLeft.y);
   } else {
     // No node found, must resize the texture atlas.
+    console.log("root:", textureAtlas._root);
+
     resizeAtlas(textureAtlas, image);
     addImage(textureAtlas, image, index);
   }
@@ -454,11 +533,13 @@ TextureAtlas.prototype.freeImageNode = function (id) {
   // 2. TODO: clear the old texture area? will it be needed? how do I achieve this?
   // the only problem with not doing it seems that new billboards will have non transparent border around them from old images
   // can something like this be done? -> that._texture.copyFrom(EmptyTexture, node.bottomLeft.x, node.bottomLeft.y);
-  
+
   indexPromise.then(function (imageIndex) {
     var node = findNodeByImageIndex(that, that._root, imageIndex);
     if (defined(node)) {
       node.imageIndex = undefined; //console.log("found node to free:", node);
+      //cleanLeafNode(node);
+      removeDeadLeafNodes(that._root);
     }
   });
 };

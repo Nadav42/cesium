@@ -86,8 +86,11 @@ function TextureAtlas(options) {
   this._guid = createGuid();
   this._idHash = {};
   this._initialSize = initialSize;
-
   this._root = undefined;
+
+  var gl = this._context._gl;
+  this._maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+  this._onAtlasReset = options.onAtlasReset;
 }
 
 Object.defineProperties(TextureAtlas.prototype, {
@@ -162,6 +165,49 @@ Object.defineProperties(TextureAtlas.prototype, {
     },
   },
 });
+
+function canResizeTextureAtlasDimension(textureAtlas, oldAtlasSize, imageSize) {
+  var scalingFactor = 2.0;
+  var borderWidthInPixels = textureAtlas._borderWidthInPixels;
+  var newAtlasSize =
+    scalingFactor * (oldAtlasSize + imageSize + borderWidthInPixels);
+  return newAtlasSize <= textureAtlas._maxTextureSize;
+}
+
+function canResizeTextureAtlas(textureAtlas, image) {
+  if (
+    !textureAtlas ||
+    !textureAtlas._root ||
+    !image ||
+    !textureAtlas._texture ||
+    !textureAtlas.texture
+  ) {
+    return true;
+  }
+
+  var imageWidth = (image && image.width) || 0;
+  var imageHeight = (image && image.height) || 0;
+  var atlasWidth = (textureAtlas.texture && textureAtlas.texture.width) || 0;
+  var atlasHeight = (textureAtlas.texture && textureAtlas.texture.height) || 0;
+  return (
+    canResizeTextureAtlasDimension(textureAtlas, atlasWidth, imageWidth) &&
+    canResizeTextureAtlasDimension(textureAtlas, atlasHeight, imageHeight)
+  );
+}
+
+// reset atlas tree
+function resetAtlas(textureAtlas) {
+  if (
+    textureAtlas._onAtlasReset &&
+    typeof textureAtlas._onAtlasReset === "function"
+  ) {
+    textureAtlas._onAtlasReset();
+  }
+
+  textureAtlas._textureCoordinates = [];
+  textureAtlas._idHash = {};
+  textureAtlas._root = undefined;
+}
 
 // Builds a larger texture and copies the old texture into the new one.
 function resizeAtlas(textureAtlas, image) {
@@ -439,7 +485,12 @@ function addImage(textureAtlas, image, index) {
     // No node found, must resize the texture atlas.
     console.log("root:", textureAtlas._root);
 
-    resizeAtlas(textureAtlas, image);
+    if (canResizeTextureAtlas(textureAtlas, image)) {
+      resizeAtlas(textureAtlas, image);
+    } else {
+      resetAtlas(textureAtlas);
+    }
+
     addImage(textureAtlas, image, index);
   }
 
@@ -523,7 +574,7 @@ TextureAtlas.prototype.freeImageNode = function (id) {
   var indexPromise = this._idHash[id];
 
   if (!defined(indexPromise)) {
-    indexPromise;
+    return;
   }
 
   var that = this;

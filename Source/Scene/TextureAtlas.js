@@ -171,7 +171,7 @@ function canResizeTextureAtlasDimension(textureAtlas, oldAtlasSize, imageSize) {
   var borderWidthInPixels = textureAtlas._borderWidthInPixels;
   var newAtlasSize =
     scalingFactor * (oldAtlasSize + imageSize + borderWidthInPixels);
-  return newAtlasSize <= textureAtlas._maxTextureSize;
+  return newAtlasSize < textureAtlas._maxTextureSize;
 }
 
 function canResizeTextureAtlas(textureAtlas, image) {
@@ -580,10 +580,6 @@ TextureAtlas.prototype.freeImageNode = function (id) {
   var that = this;
 
   // 1. TODO: only clear when 0 resources are using that id (store stack like pop push?)
-
-  // 2. TODO: clear the old texture area? will it be needed? how do I achieve this?
-  // the only problem with not doing it seems that new billboards will have non transparent border around them from old images
-  // can something like this be done? -> that._texture.copyFrom(EmptyTexture, node.bottomLeft.x, node.bottomLeft.y);
 
   indexPromise.then(function (imageIndex) {
     var node = findNodeByImageIndex(that, that._root, imageIndex);

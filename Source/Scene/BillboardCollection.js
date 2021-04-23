@@ -318,8 +318,8 @@ function BillboardCollection(options) {
 
   // on atlas tree reset clear saved cache on each billboard, also fix still referencing old atlas texture image
   this._onAtlasReset = function () {
-    for (let index = 0; index < that.length; index++) {
-      var billboard = that.get(index);
+    for (var bImgIndex = 0; bImgIndex < that.length; bImgIndex++) {
+      var billboard = that.get(bImgIndex);
       if (billboard) {
         billboard.image = null;
       }

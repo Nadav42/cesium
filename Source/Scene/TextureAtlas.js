@@ -18,13 +18,23 @@ function TextureAtlasNode(
   topRight,
   childNode1,
   childNode2,
-  imageIndex
+  imageIndex,
+  parent
 ) {
   this.bottomLeft = defaultValue(bottomLeft, Cartesian2.ZERO);
   this.topRight = defaultValue(topRight, Cartesian2.ZERO);
   this.childNode1 = childNode1;
   this.childNode2 = childNode2;
   this.imageIndex = imageIndex;
+  this.parent = parent;
+
+  if (childNode1) {
+    childNode1.parent = this;
+  }
+
+  if (childNode2) {
+    childNode2.parent = this;
+  }
 }
 
 var defaultInitialSize = new Cartesian2(16.0, 16.0);
@@ -76,8 +86,11 @@ function TextureAtlas(options) {
   this._guid = createGuid();
   this._idHash = {};
   this._initialSize = initialSize;
-
   this._root = undefined;
+
+  var gl = this._context._gl;
+  this._maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
+  this._onAtlasReset = options.onAtlasReset;
 }
 
 Object.defineProperties(TextureAtlas.prototype, {
@@ -152,6 +165,49 @@ Object.defineProperties(TextureAtlas.prototype, {
     },
   },
 });
+
+function canResizeTextureAtlasDimension(textureAtlas, oldAtlasSize, imageSize) {
+  var scalingFactor = 2.0;
+  var borderWidthInPixels = textureAtlas._borderWidthInPixels;
+  var newAtlasSize =
+    scalingFactor * (oldAtlasSize + imageSize + borderWidthInPixels);
+  return newAtlasSize < textureAtlas._maxTextureSize;
+}
+
+function canResizeTextureAtlas(textureAtlas, image) {
+  if (
+    !textureAtlas ||
+    !textureAtlas._root ||
+    !image ||
+    !textureAtlas._texture ||
+    !textureAtlas.texture
+  ) {
+    return true;
+  }
+
+  var imageWidth = (image && image.width) || 0;
+  var imageHeight = (image && image.height) || 0;
+  var atlasWidth = (textureAtlas.texture && textureAtlas.texture.width) || 0;
+  var atlasHeight = (textureAtlas.texture && textureAtlas.texture.height) || 0;
+  return (
+    canResizeTextureAtlasDimension(textureAtlas, atlasWidth, imageWidth) &&
+    canResizeTextureAtlasDimension(textureAtlas, atlasHeight, imageHeight)
+  );
+}
+
+// reset atlas tree
+function resetAtlas(textureAtlas) {
+  if (
+    textureAtlas._onAtlasReset &&
+    typeof textureAtlas._onAtlasReset === "function"
+  ) {
+    textureAtlas._onAtlasReset();
+  }
+
+  textureAtlas._textureCoordinates = [];
+  textureAtlas._idHash = {};
+  textureAtlas._root = undefined;
+}
 
 // Builds a larger texture and copies the old texture into the new one.
 function resizeAtlas(textureAtlas, image) {
@@ -250,6 +306,87 @@ function resizeAtlas(textureAtlas, image) {
   }
 }
 
+function destroyNode(node) {
+  if (defined(node)) {
+    node.bottomLeft = undefined;
+    node.topRight = undefined;
+    node.parent = undefined;
+  }
+}
+
+// return true if all childs and subchilds are leafs with no image
+function shouldRemoveChild(node) {
+  if (!defined(node)) {
+    return true;
+  } else if (defined(node.imageIndex)) {
+    return false;
+  } else if (!defined(node.childNode1) && !defined(node.childNode2)) {
+    return true;
+  }
+
+  return (
+    shouldRemoveChild(node.childNode1) && shouldRemoveChild(node.childNode2)
+  );
+}
+
+// remove all dead childs of a node recursively
+function removeDeadNodes(node) {
+  if (!defined(node)) {
+    return true;
+  }
+
+  if (
+    !shouldRemoveChild(node.childNode1) ||
+    !shouldRemoveChild(node.childNode2)
+  ) {
+    return false;
+  }
+
+  var removedNode1 = removeDeadNodes(node.childNode1);
+  var removedNode2 = removeDeadNodes(node.childNode2);
+  destroyNode(node.childNode1);
+  destroyNode(node.childNode2);
+  node.childNode1 = undefined;
+  node.childNode2 = undefined;
+
+  return removedNode1 && removedNode2;
+}
+
+// clean unused leaf nodes with no images
+function cleanLeafNode(node) {
+  if (!defined(node)) {
+    return;
+  }
+
+  if (removeDeadNodes(node.childNode1) && removeDeadNodes(node.childNode2)) {
+    node.childNode1 = undefined;
+    node.childNode2 = undefined;
+    cleanLeafNode(node.parent);
+  }
+}
+
+// find Node by image index
+function findNodeByImageIndex(textureAtlas, node, imageIndex) {
+  if (!defined(node)) {
+    return undefined;
+  }
+
+  // If a leaf node
+  if (
+    !defined(node.childNode1) &&
+    !defined(node.childNode2) &&
+    node.imageIndex === imageIndex
+  ) {
+    return node;
+  }
+
+  // If not a leaf node
+  return (
+    findNodeByImageIndex(textureAtlas, node.childNode1, imageIndex) ||
+    findNodeByImageIndex(textureAtlas, node.childNode2, imageIndex)
+  );
+}
+
 // A recursive function that finds the best place to insert
 // a new image based on existing image 'nodes'.
 // Inspired by: http://blackpawn.com/texts/lightmaps/default.html
@@ -286,6 +423,7 @@ function findNode(textureAtlas, node, image) {
         new Cartesian2(node.bottomLeft.x, node.bottomLeft.y),
         new Cartesian2(node.bottomLeft.x + image.width, node.topRight.y)
       );
+      node.childNode1.parent = node;
       // Only make a second child if the border gives enough space.
       var childNode2BottomLeftX =
         node.bottomLeft.x + image.width + textureAtlas._borderWidthInPixels;
@@ -294,6 +432,7 @@ function findNode(textureAtlas, node, image) {
           new Cartesian2(childNode2BottomLeftX, node.bottomLeft.y),
           new Cartesian2(node.topRight.x, node.topRight.y)
         );
+        node.childNode2.parent = node;
       }
     }
     // Horizontal split (childNode1 = bottom half, childNode2 = top half).
@@ -302,6 +441,7 @@ function findNode(textureAtlas, node, image) {
         new Cartesian2(node.bottomLeft.x, node.bottomLeft.y),
         new Cartesian2(node.topRight.x, node.bottomLeft.y + image.height)
       );
+      node.childNode1.parent = node;
       // Only make a second child if the border gives enough space.
       var childNode2BottomLeftY =
         node.bottomLeft.y + image.height + textureAtlas._borderWidthInPixels;
@@ -310,6 +450,7 @@ function findNode(textureAtlas, node, image) {
           new Cartesian2(node.bottomLeft.x, childNode2BottomLeftY),
           new Cartesian2(node.topRight.x, node.topRight.y)
         );
+        node.childNode2.parent = node;
       }
     }
     return findNode(textureAtlas, node.childNode1, image);
@@ -408,6 +549,42 @@ TextureAtlas.prototype.addImage = function (id, image) {
   this._idHash[id] = indexPromise;
 
   return indexPromise;
+};
+
+TextureAtlas.prototype.freeNodeResources = function (
+  node,
+  imageId,
+  imageIndex
+) {
+  if (defined(node)) {
+    node.imageIndex = undefined; //console.log("found node to free:", node);
+    cleanLeafNode(node);
+    delete this._textureCoordinates[imageIndex];
+    delete this._idHash[imageId];
+  }
+};
+
+/**
+ * free occupied TextureAtlasNode
+ *
+ * @param {String} id An identifier to detect whether the image already exists in the atlas.
+ * @returns {void}
+ */
+TextureAtlas.prototype.freeImageNode = function (id, imageIndex) {
+  return;
+  //>>includeStart('debug', pragmas.debug);
+  if (!defined(id)) {
+    throw new DeveloperError("id is required.");
+  }
+  //>>includeEnd('debug');
+
+  if (!defined(imageIndex)) {
+    console.error("[TextureAtlas] undefined imageIndex for id", id, imageIndex);
+    return;
+  }
+
+  var node = findNodeByImageIndex(this, this._root, imageIndex);
+  this.freeNodeResources(node, id, imageIndex);
 };
 
 /**

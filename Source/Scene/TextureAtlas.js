@@ -483,7 +483,12 @@ function addImage(textureAtlas, image, index) {
     textureAtlas._texture.copyFrom(image, node.bottomLeft.x, node.bottomLeft.y);
   } else {
     // No node found, must resize the texture atlas.
-    resizeAtlas(textureAtlas, image);
+    if (canResizeTextureAtlas(textureAtlas, image)) {
+      resizeAtlas(textureAtlas, image);
+    } else {
+      resetAtlas(textureAtlas);
+    }
+
     addImage(textureAtlas, image, index);
   }
 
@@ -571,7 +576,6 @@ TextureAtlas.prototype.freeNodeResources = function (
  * @returns {void}
  */
 TextureAtlas.prototype.freeImageNode = function (id, imageIndex) {
-  return;
   //>>includeStart('debug', pragmas.debug);
   if (!defined(id)) {
     throw new DeveloperError("id is required.");

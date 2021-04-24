@@ -575,33 +575,20 @@ TextureAtlas.prototype.freeNodeResources = function (
  * @param {String} id An identifier to detect whether the image already exists in the atlas.
  * @returns {void}
  */
-TextureAtlas.prototype.freeImageNode = function (id, imageIndexArg) {
+TextureAtlas.prototype.freeImageNode = function (id, imageIndex) {
   //>>includeStart('debug', pragmas.debug);
   if (!defined(id)) {
     throw new DeveloperError("id is required.");
   }
   //>>includeEnd('debug');
 
-  if (defined(imageIndexArg)) {
-    var node = findNodeByImageIndex(this, this._root, imageIndexArg);
-    this.freeNodeResources(node, id, imageIndexArg);
+  if (!defined(imageIndex)) {
+    console.error("[TextureAtlas] undefined imageIndex for id", id, imageIndex);
     return;
   }
 
-  var indexPromise = this._idHash[id];
-
-  if (!defined(indexPromise)) {
-    return;
-  }
-
-  var that = this;
-
-  // 1. TODO: only clear when 0 resources are using that id (store stack like pop push?)
-
-  indexPromise.then(function (imageIndex) {
-    var node = findNodeByImageIndex(that, that._root, imageIndex);
-    that.freeNodeResources(node, id, imageIndex);
-  });
+  var node = findNodeByImageIndex(this, this._root, imageIndex);
+  this.freeNodeResources(node, id, imageIndex);
 };
 
 /**

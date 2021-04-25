@@ -62,7 +62,7 @@ var defaultInitialSize = new Cartesian2(16.0, 16.0);
  */
 function TextureAtlas(options) {
   options = defaultValue(options, defaultValue.EMPTY_OBJECT);
-  var borderWidthInPixels = defaultValue(options.borderWidthInPixels, 2.0);
+  var borderWidthInPixels = defaultValue(options.borderWidthInPixels, 4.0);
   var initialSize = defaultValue(options.initialSize, defaultInitialSize);
 
   //>>includeStart('debug', pragmas.debug);
@@ -465,6 +465,17 @@ function fillBorderWithZeros(textureAtlas, node) {
   var spacing = textureAtlas._borderWidthInPixels;
   var imgWidth = Math.abs(node.topRight.x - node.bottomLeft.x);
   var imgHeight = Math.abs(node.topRight.y - node.bottomLeft.y);
+
+  // fix bottom border
+  textureAtlas._texture.copyFrom(
+    {
+      width: imgWidth,
+      height: spacing,
+      arrayBufferView: new Uint8Array(imgWidth * spacing * 4),
+    },
+    node.bottomLeft.x,
+    node.bottomLeft.y
+  );
   textureAtlas._texture.copyFrom(
     {
       width: imgWidth,
@@ -474,14 +485,16 @@ function fillBorderWithZeros(textureAtlas, node) {
     node.bottomLeft.x,
     Math.max(node.bottomLeft.y - spacing, 0)
   );
+
+  // fix left border
   textureAtlas._texture.copyFrom(
     {
-      width: imgWidth,
-      height: spacing,
-      arrayBufferView: new Uint8Array(imgWidth * spacing * 4),
+      width: spacing,
+      height: imgHeight,
+      arrayBufferView: new Uint8Array(imgHeight * spacing * 4),
     },
     node.bottomLeft.x,
-    node.topRight.y
+    node.bottomLeft.y
   );
   textureAtlas._texture.copyFrom(
     {
@@ -492,15 +505,14 @@ function fillBorderWithZeros(textureAtlas, node) {
     Math.max(node.bottomLeft.x - spacing, 0),
     node.bottomLeft.y
   );
-  textureAtlas._texture.copyFrom(
-    {
-      width: spacing,
-      height: imgHeight,
-      arrayBufferView: new Uint8Array(imgHeight * spacing * 4),
-    },
-    node.topRight.x,
-    node.bottomLeft.y
-  );
+
+  // top border - not needed
+  // var yMaxSpacing = Math.min(spacing, textureAtlas.texture.height - node.topRight.y);
+  // textureAtlas._texture.copyFrom({width: imgWidth, height: yMaxSpacing, arrayBufferView: new Uint8Array(imgWidth * yMaxSpacing * 4)}, node.bottomLeft.x, node.topRight.y);
+
+  // right border - not needed
+  // var xMaxSpacing = Math.min(spacing, textureAtlas.texture.width - node.topRight.x);
+  // textureAtlas._texture.copyFrom({width: xMaxSpacing, height: imgHeight, arrayBufferView: new Uint8Array(imgHeight * xMaxSpacing * 4)}, node.topRight.x, node.bottomLeft.y);
 }
 
 // Adds image of given index to the texture atlas. Called from addImage and addImages.

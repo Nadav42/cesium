@@ -543,7 +543,7 @@ function addImage(textureAtlas, image, index) {
     textureAtlas._textureCoordinates[index] = new BoundingRectangle(x, y, w, h);
     textureAtlas._texture.copyFrom(image, node.bottomLeft.x, node.bottomLeft.y);
   } else {
-    // No node found, must resize or reset the texture atlas.
+    // No node found, must resize the texture atlas.
     resizeAtlas(textureAtlas, image);
     addImage(textureAtlas, image, index);
   }

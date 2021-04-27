@@ -87,11 +87,11 @@ function TextureAtlas(options) {
   this._idHash = {};
   this._initialSize = initialSize;
   this._root = undefined;
-  this._experimentalDynamicNodes = false;
 
   var gl = this._context._gl;
   this._maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
   this._onAtlasReset = options.onAtlasReset;
+  this._experimentalDynamicNodes = false;
 }
 
 Object.defineProperties(TextureAtlas.prototype, {

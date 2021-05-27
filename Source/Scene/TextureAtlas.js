@@ -92,6 +92,7 @@ function TextureAtlas(options) {
   this._maxTextureSize = gl.getParameter(gl.MAX_TEXTURE_SIZE);
   this._onAtlasReset = options.onAtlasReset;
   this._experimentalDynamicNodes = false;
+  this._markedForReset = false;
 }
 
 Object.defineProperties(TextureAtlas.prototype, {
@@ -198,16 +199,26 @@ function canResizeTextureAtlas(textureAtlas, image) {
 
 // reset atlas tree
 function resetAtlas(textureAtlas) {
-  if (
-    textureAtlas._onAtlasReset &&
-    typeof textureAtlas._onAtlasReset === "function"
-  ) {
-    textureAtlas._onAtlasReset();
-    textureAtlas._textureCoordinates = [];
-    textureAtlas._idHash = {};
-    textureAtlas._root = undefined;
-    textureAtlas._guid = createGuid();
+  if(textureAtlas._markedForReset || !textureAtlas._root) {
+    return;
   }
+  
+  textureAtlas._markedForReset = true;
+  
+  // TODO: change to postRender
+  window.requestAnimationFrame(() => {
+    if (
+      textureAtlas._onAtlasReset &&
+      typeof textureAtlas._onAtlasReset === "function"
+    ) {
+      textureAtlas._onAtlasReset();
+      textureAtlas._textureCoordinates = [];
+      textureAtlas._idHash = {};
+      textureAtlas._root = undefined;
+      textureAtlas._guid = createGuid();
+      textureAtlas._markedForReset = false;
+    }
+  });
 }
 
 // Builds a larger texture and copies the old texture into the new one.
@@ -573,13 +584,14 @@ function addImageDynamicNode(textureAtlas, image, index) {
   } else {
     // No node found, must resize or reset the texture atlas.
     if (!canResizeTextureAtlas(textureAtlas, image)) {
-      return resetAtlas(textureAtlas);
+      resetAtlas(textureAtlas);
+      return false;
     }
 
     resizeAtlas(textureAtlas, image);
 
     if (changeBorderDynamically(textureAtlas)) {
-      return;
+      return false;
     }
 
     addImageDynamicNode(textureAtlas, image, index);
@@ -639,7 +651,10 @@ TextureAtlas.prototype.addImage = function (id, image) {
     var index = that.numberOfImages;
 
     if (that._experimentalDynamicNodes) {
-      addImageDynamicNode(that, image, index);
+      var dIndex = addImageDynamicNode(that, image, index);
+      if (dIndex === false) {
+        return -1;
+      }
     } else {
       addImage(that, image, index);
     }

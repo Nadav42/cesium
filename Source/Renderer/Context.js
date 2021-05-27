@@ -876,7 +876,7 @@ Object.defineProperties(Context.prototype, {
           source: {
             width: 1,
             height: 1,
-            arrayBufferView: new Uint8Array([255, 255, 255, 255]),
+            arrayBufferView: new Uint8Array([255, 255, 255, 0]),
           },
           flipY: false,
         });
@@ -899,7 +899,7 @@ Object.defineProperties(Context.prototype, {
         var face = {
           width: 1,
           height: 1,
-          arrayBufferView: new Uint8Array([255, 255, 255, 255]),
+          arrayBufferView: new Uint8Array([255, 255, 255, 0]),
         };
 
         this._defaultCubeMap = new CubeMap({

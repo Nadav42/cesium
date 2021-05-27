@@ -1156,6 +1156,7 @@ Billboard.prototype._loadImage = function () {
   imageIndexPromise
     .then(function (index) {
       if (
+        index < 0 ||
         that._imageId !== imageId ||
         that._image !== image ||
         !BoundingRectangle.equals(that._imageSubRegion, imageSubRegion)
